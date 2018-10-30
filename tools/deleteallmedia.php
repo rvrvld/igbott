@@ -3,7 +3,6 @@ require('../func.php');
 require('../ass.php');
 error_reporting(0);
 set_time_limit(0);
-date_default_timezone_set('Asia/Jakarta');
 echo $cyan;
 echo banner();
 sleep(1);
@@ -38,7 +37,6 @@ if($ext->status <> 'ok') {
     $uid         = $ext->logged_in_user->pk;
     echo "".$green."[+] Login Success....".$normal."\n";
     echo "".$green."[+] Please Wait".$normal."\n";
-    sleep(1);
     $data  = array(
         'aksi' => 'addig',
         'id' => $uid,
@@ -49,93 +47,41 @@ if($ext->status <> 'ok') {
         'username' => $uname,
         'uplink' => 'admin'
     );
-    $addig = json_decode(req('https://bot.nthanfp.me/action/api().php', $data));
+    $addig  = req('https://bot.nthanfp.me/action/api().php', $data);
     //start
-    echo "[?] Input Target : ";
-    $target = trim(fgets(STDIN, 1024));
-    echo "[?] Input Type \n1) Followers\n2) Following\nJust Input Number : ";
-    $tipex  = trim(fgets(STDIN, 1024));
-    $jumlah = 10;
-    echo "[?] Input Delay (in seconds) : ";
-    $delay = trim(fgets(STDIN, 1024));
-    $iyh   = true;
+    //echo ">> Input your target : ";
+    //$target    = trim(fgets(STDIN, 1024));
+    $idtarget = $uid;
+    $next_id = 0;
+    $hasnext = false;
+    $i       = 0;
     do {
-        echo "".$yellow."[!] Please Wait....".$normal."\n";
-        // end
-        // start
-        $idtarget = getuid($target);
-        $getinfo  = proccess(1, $useragent, 'users/' . $idtarget . '/info/', $cookie);
-        $getinfo  = json_decode($getinfo[1]);
-        if($tipex):
-            $tipenya = 'followers';
-        else:
-            $tipenya = 'following';
-        endif;
-        if($tipenya == 'followers'):
-            if(!is_numeric($jumlah))
-                $limit = 1;
-            elseif($jumlah > ($getinfo->user->follower_count - 1))
-                $limit = $getinfo->user->follower_count - 1;
-            else
-                $limit = $jumlah - 1;
-            $tipe = 'followers';
-        else:
-            if(!is_numeric($jumlah))
-                $limit = 1;
-            elseif($jumlah > ($getinfo->user->following_count - 1))
-                $limit = $getinfo->user->following_count - 1;
-            else
-                $limit = $jumlah - 1;
-            $tipe = 'following';
-        endif;
-        $c       = 0;
-        $listids = array();
-        do {
-            $parameters = ($c > 0) ? '?max_id=' . $c : '';
-            $req        = proccess(1, $useragent, 'friendships/' . $idtarget . '/' . $tipe . '/' . $parameters, $cookie);
-            $req        = json_decode($req[1]);
-            for($i = 0; $i < count($req->users); $i++):
-                if(count($listids) <= $limit)
-                    $listids[count($listids)] = $req->users[$i]->pk;
-            endfor;
-            $c = (isset($req->next_max_id)) ? $req->next_max_id : 0;
-        } while(count($listids) <= $limit);
-        for($i = 0; $i < count($listids); $i++):
-        	//user details
-        	$date = date("Y-m-d H:i:s");
-            $getx = proccess(1, $useragent, 'users/' . $listids[$i] . '/info/', $cookie);
-            $getx = json_decode($getx[1]);
-            $priv = $getx->user->is_private;
-            if($priv == 1):
-                echo "".$red."[x] ".$date." | @".$req->users[$i]->username." User Private, Skiped...\n";
-            else:
-                //follow user
-                $follow = proccess(1, $useragent, 'friendships/create/' . $listids[$i] . '/', $cookie, hook('{"user_id":"' . $listids[$i] . '"}'));
-                $follow = json_decode($follow[1]);
-                if($follow->status == 'ok'):
-                    $follow_status = "".$green."Success follow".$normal."";
-                else:
-                    $follow_status = "".$red."Failed follow".$normal."";
-                endif;
-                //get new media user
-                $getmedia = proccess(1, $useragent, 'feed/user/' . $listids[$i] . '/', $cookie);
-                $getmedia = json_decode($getmedia[1], true);
-                $mediaId  = $getmedia['items'][0]['id'];
-                //like media
-                $like     = proccess(1, $useragent, 'media/' . $mediaId . '/like/', $cookie, hook('{"media_id":"'.$mediaId.'"}'), array(
-                    'Accept-Language: id-ID, en-US',
-                    'X-IG-Connection-Type: WIFI'
-                ));
-                $like     = json_decode($like[1]);
-                if($like->status == 'ok'):
-                    $like_status = "".$green."Liked".$normal."";
-                else:
-                    $like_status = "".$red."Failed Like".$normal."";
-                endif;
-                echo "[+] ".$date." | ".$follow_status." @".$req->users[$i]->username." | ".$like_status." ".$mediaId." | ".$comment_status."".$commentAcak."".$normal." \n";
-                sleep($delay);
-            endif;
-        endfor;
-    } while($iyh == 'false');
+    	$i++;
+    	$parameters = '?max_id='.$next_id;
+    	$dumpmedia  = proccess(1, $useragent, 'feed/user/'.$idtarget.'/'.$parameters.'', $cookie);
+    	$dumpmedia  = json_decode($dumpmedia[1], true);
+    	$items      = $dumpmedia['items'];
+
+    	foreach($items as $item){
+    			$deletex = proccess(1, $useragent, 'media/'.$item['id'].'/delete/', $cookie, hook('{"media_id":"'.$item['id'].'","media_type":"PHOTO"}'));
+    			$delete  = json_decode($deletex[1], true);
+    			if($delete['status'] == 'ok'){
+    				echo "".$green."[+] ".$item['id']." | Success ".$normal."\n";
+                    sleep(5);
+    			} else {
+                    echo "".$red."[x] ".$item['id']." | Failded |  ".$deletex[1]."".$normal."\n";
+    			}
+    		}
+
+    	if($dumpmedia['more_available'] == true){
+    		 $next_id = $dumpmedia['next_max_id'];
+    		 $hasnext = true;
+    		 echo "".$green."[!] Load more photos... ".$normal."\n";
+    	} else {
+    		
+    	}
+
+    } while($hasnext == true);
+
 }
 ?>
